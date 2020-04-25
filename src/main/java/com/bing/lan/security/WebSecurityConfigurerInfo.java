@@ -50,6 +50,11 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
                 "/favicon.ico", "/error");
     }
 
+    @Bean
+    JwtSecurityContextRepository jwtSecurityContextRepository() {
+        return new JwtSecurityContextRepository();
+    }
+
     /**
      * 配置角色继承
      */
@@ -76,13 +81,17 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
 
         // 配置SecurityContext的默认持久化方式，即存在HttpSession中
         http.securityContext(securityContextConfigurer -> {
-
+            // 将持久化方式改为 jwt token 方式
+            securityContextConfigurer.securityContextRepository(jwtSecurityContextRepository());
         });
 
         // 配置认证拦截器，做登录操作
         http.formLogin(formLoginConfigurer -> {
             // 配置登录后跳转地址
-            formLoginConfigurer.defaultSuccessUrl("/hello");
+            //formLoginConfigurer.defaultSuccessUrl("/hello");
+            // 登录成功后不做操作，留给 JwtSecurityContextRepository.saveContext()操作
+            formLoginConfigurer.successHandler((req, resp, authentication) -> {
+            });
         });
 
         // 配置匿名拦截器，如果未认证，则自动添加匿名认证
