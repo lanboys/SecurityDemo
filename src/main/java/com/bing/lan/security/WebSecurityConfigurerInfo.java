@@ -2,6 +2,7 @@ package com.bing.lan.security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -10,6 +11,9 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter;
@@ -17,6 +21,7 @@ import org.springframework.web.filter.GenericFilterBean;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -28,12 +33,16 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
+import javax.sql.DataSource;
 
 /**
  * Created by lb on 2020/4/25.
  */
 @Configuration
 public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
+
+    @Autowired
+    DataSource dataSource;
 
     public WebSecurityConfigurerInfo() {
         // 取消默认配置
@@ -75,6 +84,39 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
 
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+        // 定义 parentAuthenticationManager
+        // AuthenticationManagerBuilder 是用来构建 AuthenticationManager(这里的实现类就是
+        // ProviderManager) 的， AuthenticationManager 是用来管理内部 AuthenticationProvider 的
+        // 并且 ProviderManager 内部支持多个 AuthenticationProvider。
+
+        //auth.jdbcAuthentication().dataSource(dataSource);
+        //auth.jdbcAuthentication().withUser("nancy").password("123").roles("USER");
+        //auth.jdbcAuthentication().withUser("bobo").password("123").roles("ADMIN");
+
+        // 自定义 UserDetailsService
+        auth.userDetailsService(username -> {
+            ArrayList<GrantedAuthority> authorities = new ArrayList<>();
+            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+            // 为了方便测试，使所有username都可登录成功，将密码设置为 "", 可以实现不校验密码登录
+            return new User(username, "", authorities);
+        });
+
+        // 直接自定义provider, 继承原有的provider实现或者自己实现
+        //DaoAuthenticationProvider noPasswordProvider = new DaoAuthenticationProvider() {
+        //    protected void additionalAuthenticationChecks(UserDetails userDetails,
+        //            UsernamePasswordAuthenticationToken authentication)
+        //            throws AuthenticationException {
+        //        // 不校验密码
+        //    }
+        //};
+        //noPasswordProvider.setUserDetailsService(username -> {
+        //    ArrayList<GrantedAuthority> authorities = new ArrayList<>();
+        //    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+        //    // 为了方便测试，使所有username都可登录成功
+        //    return new User(username, "", authorities);
+        //});
+        //auth.authenticationProvider(noPasswordProvider);
+
         // 配置用户
         auth.inMemoryAuthentication().withUser("coco").password("123").roles("USER");
         auth.inMemoryAuthentication().withUser("lili").password("123").roles("ADMIN");
