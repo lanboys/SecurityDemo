@@ -124,6 +124,16 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
             expressionInterceptUrlRegistry.anyRequest().authenticated();
         });
 
+        http.requestCache(requestCacheConfigurer -> {
+            // 取消请求缓存，通常用于前后端不分离项目中，方便记录上一个请求地址，进行跳转
+            requestCacheConfigurer.disable();
+
+            // 不主动创建 session 来进行缓存
+            //HttpSessionRequestCache cache = new HttpSessionRequestCache();
+            //cache.setCreateSessionAllowed(false);
+            //requestCacheConfigurer.requestCache(cache);
+        });
+
         // 配置鉴权异常拦截器
         http.exceptionHandling(exceptionHandlingConfigurer -> {
 
