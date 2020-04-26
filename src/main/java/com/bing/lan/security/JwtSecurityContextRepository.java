@@ -15,6 +15,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -24,6 +25,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 
@@ -35,22 +37,30 @@ public class JwtSecurityContextRepository implements SecurityContextRepository {
     private static final String AUTHORIZATION = "authorization";
     private static final String AUTHORITIES = "authorities";
     private static final String SIGNING_KEY = "sign123";
+    private static final String LOGIN_URL = "/login";
+
+    private AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
 
     @Override
     public SecurityContext loadContext(HttpRequestResponseHolder requestResponseHolder) {
         HttpServletRequest servletRequest = requestResponseHolder.getRequest();
 
-        String servletPath = servletRequest.getServletPath();
         String jwtToken = getAuthentication(servletRequest);
-        System.out.println("loadContext servletPath: " + servletPath);
-        System.out.println("loadContext jwtToken: " + jwtToken);
-        // todo 校验有效期
-        if (StringUtils.isEmpty(jwtToken) || "/login".equals(servletPath)) {
+        //System.out.println("loadContext jwtToken: " + jwtToken);
+
+        if (StringUtils.isEmpty(jwtToken) || LOGIN_URL.equals(servletRequest.getServletPath())) {
             return SecurityContextHolder.createEmptyContext();
         }
 
-        Claims claims = Jwts.parser().setSigningKey(SIGNING_KEY)
-                .parseClaimsJws(jwtToken.replace("Bearer", "")).getBody();
+        // redis 单点登录
+        Claims claims;
+        try {
+            claims = Jwts.parser().setSigningKey(SIGNING_KEY)
+                    .parseClaimsJws(jwtToken.replace("Bearer", "")).getBody();
+        } catch (ExpiredJwtException throwable) {
+            throw new SecurityException("token 过期");
+        }
+
         String username = claims.getSubject();//获取当前登录用户名
         List<GrantedAuthority> authorities = AuthorityUtils.commaSeparatedStringToAuthorityList((String) claims.get(AUTHORITIES));
 
@@ -60,18 +70,15 @@ public class JwtSecurityContextRepository implements SecurityContextRepository {
         return context;
     }
 
-    private AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
-
     @Override
     public void saveContext(SecurityContext context, HttpServletRequest request, HttpServletResponse response) {
         final Authentication authentication = context.getAuthentication();
+
         if (authentication == null || trustResolver.isAnonymous(authentication)) {
             return;
         }
 
-        String servletPath = request.getServletPath();
-        System.out.println("saveContext servletPath: " + servletPath);
-        if (!"/login".equals(servletPath)) {
+        if (!LOGIN_URL.equals(request.getServletPath())) {
             return;
         }
 
@@ -89,13 +96,8 @@ public class JwtSecurityContextRepository implements SecurityContextRepository {
                 .compact();
 
         System.out.println("saveContext jwtToken: " + jwtToken);
-        try {
-            response.setContentType("application/json;charset=utf-8");
-            response.addCookie(new Cookie(AUTHORIZATION, jwtToken));
-            response.getWriter().write(new ObjectMapper().writeValueAsString("login success"));
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        response.addCookie(new Cookie(AUTHORIZATION, jwtToken));
+        returnResult(response, "登录成功");
     }
 
     @Override
@@ -103,7 +105,19 @@ public class JwtSecurityContextRepository implements SecurityContextRepository {
         return false;
     }
 
-    public String getAuthentication(HttpServletRequest request) {
+    private void returnResult(HttpServletResponse response, String result) {
+        try {
+            response.setContentType("application/json;charset=utf-8");
+            PrintWriter writer = response.getWriter();
+            writer.write(new ObjectMapper().writeValueAsString(result));
+            writer.flush();
+            writer.close();
+        } catch (IOException e) {
+            throw new SecurityException(e);
+        }
+    }
+
+    private String getAuthentication(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
         if (null == cookies) {
             return null;

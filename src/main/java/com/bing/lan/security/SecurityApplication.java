@@ -35,6 +35,6 @@ public class SecurityApplication {
 
     @RequestMapping("/user/hello")
     public String user() {
-        return "user 角色可以访问";
+        return "user admin 角色都可以访问";
     }
 }
