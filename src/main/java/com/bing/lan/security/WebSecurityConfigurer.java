@@ -3,6 +3,7 @@ package com.bing.lan.security;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -11,9 +12,7 @@ import org.springframework.security.config.annotation.authentication.builders.Au
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.security.config.annotation.web.configurers.DaoUrlAuthorizationConfigurer;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter;
@@ -21,7 +20,6 @@ import org.springframework.web.filter.GenericFilterBean;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -39,12 +37,12 @@ import javax.sql.DataSource;
  * Created by lb on 2020/4/25.
  */
 @Configuration
-public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
+public class WebSecurityConfigurer extends WebSecurityConfigurerAdapter {
 
     @Autowired
     DataSource dataSource;
 
-    public WebSecurityConfigurerInfo() {
+    public WebSecurityConfigurer() {
         // 取消默认配置
         super(true);
     }
@@ -72,6 +70,11 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
         return new JwtSecurityContextRepository();
     }
 
+    @Bean
+    DaoUrlAuthorizationConfigurer daoUrlAuthorizationConfigurer() {
+        return new DaoUrlAuthorizationConfigurer();
+    }
+
     /**
      * 配置角色继承
      */
@@ -94,12 +97,12 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
         //auth.jdbcAuthentication().withUser("bobo").password("123").roles("ADMIN");
 
         // 自定义 UserDetailsService
-        auth.userDetailsService(username -> {
-            ArrayList<GrantedAuthority> authorities = new ArrayList<>();
-            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-            // 为了方便测试，使所有username都可登录成功，将密码设置为 "", 可以实现不校验密码登录
-            return new User(username, "", authorities);
-        });
+        //auth.userDetailsService(username -> {
+        //    ArrayList<GrantedAuthority> authorities = new ArrayList<>();
+        //    authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+        //    // 为了方便测试，使所有username都可登录成功，将密码设置为 "", 可以实现不校验密码登录
+        //    return new User(username, "", authorities);
+        //});
 
         // 直接自定义provider, 继承原有的provider实现或者自己实现
         //DaoAuthenticationProvider noPasswordProvider = new DaoAuthenticationProvider() {
@@ -118,13 +121,20 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
         //auth.authenticationProvider(noPasswordProvider);
 
         // 配置用户
-        auth.inMemoryAuthentication().withUser("coco").password("123").roles("USER");
-        auth.inMemoryAuthentication().withUser("lili").password("123").roles("ADMIN");
+        auth.inMemoryAuthentication().withUser("user").password("123").roles("USER");
+        auth.inMemoryAuthentication().withUser("admin").password("123").roles("ADMIN");
+
+        // 配置不加 ROLE_ 前缀的用户
+        //User user = new User("user", "123", AuthorityUtils.createAuthorityList("USER"));
+        //auth.inMemoryAuthentication().withUser(user);
+        //user = new User("admin", "123", AuthorityUtils.createAuthorityList("ADMIN"));
+        //auth.inMemoryAuthentication().withUser(user);
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         //super.configure(http);
+        ApplicationContext application = http.getSharedObject(ApplicationContext.class);
 
         // 配置异常拦截器
         http.addFilterBefore(new ExceptionFilter(), WebAsyncManagerIntegrationFilter.class);
@@ -154,17 +164,28 @@ public class WebSecurityConfigurerInfo extends WebSecurityConfigurerAdapter {
 
         // 配置匿名拦截器，如果未认证，则自动添加匿名认证
         http.anonymous(anonymousConfigurer -> {
-
+            // 取消角色前缀 ROLE_
+            //anonymousConfigurer.authorities("ANONYMOUS");
         });
 
-        // 配置授权拦截器
-        http.authorizeRequests(expressionInterceptUrlRegistry -> {
-            expressionInterceptUrlRegistry.antMatchers("/user/**").hasRole("USER");
-            expressionInterceptUrlRegistry.antMatchers("/admin/**").hasRole("ADMIN");
-            expressionInterceptUrlRegistry.antMatchers("/denyAll").denyAll();
-            expressionInterceptUrlRegistry.antMatchers("/anonymous").anonymous();
-            expressionInterceptUrlRegistry.anyRequest().authenticated();
-        });
+        // 配置表达式授权拦截器
+        //http.authorizeRequests(expressionInterceptUrlRegistry -> {
+        //    expressionInterceptUrlRegistry.antMatchers("/user/**").hasAnyAuthority("USER", "ADMIN");
+        //    expressionInterceptUrlRegistry.antMatchers("/admin/**").hasAuthority("ADMIN");
+        //    expressionInterceptUrlRegistry.antMatchers("/denyAll").denyAll();
+        //    expressionInterceptUrlRegistry.antMatchers("/anonymous").anonymous();
+        //    expressionInterceptUrlRegistry.anyRequest().authenticated();
+        //});
+
+        // 配置url授权拦截器
+        //UrlAuthorizationConfigurer<HttpSecurity>.StandardInterceptUrlRegistry standardInterceptUrlRegistry =
+        //        http.apply(new UrlAuthorizationConfigurer<>(application)).getRegistry();
+        //standardInterceptUrlRegistry.antMatchers("/user/**").hasRole("USER");
+        //standardInterceptUrlRegistry.antMatchers("/admin/**").hasRole("ADMIN");
+        //standardInterceptUrlRegistry.antMatchers("/anonymous").anonymous();
+
+        // 配置自定义授权拦截器
+        http.apply(daoUrlAuthorizationConfigurer());
 
         http.requestCache(requestCacheConfigurer -> {
             // 取消请求缓存，通常用于前后端不分离项目中，方便记录上一个请求地址，进行跳转

@@ -18,6 +18,11 @@ public class SecurityApplication {
         return "hello security";
     }
 
+    @RequestMapping("/fullyAuthenticated")
+    public String fullyAuthenticated() {
+        return "fullyAuthenticated 完全认证，即非匿名，非自动登录";
+    }
+
     @RequestMapping("/denyAll")
     public String denyAll() {
         return "denyAll 拒绝所有访问";
