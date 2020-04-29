@@ -1,46 +1,46 @@
-package com.bing.lan.security;
+package com.bing.lan.security.web;
 
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.annotation.Order;
+import com.bing.lan.security.JwtSecurityContextRepository;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
 import org.springframework.security.config.annotation.web.configurers.DaoUrlAuthorizationConfigurer;
 
 /**
- * Created by lb on 2020/4/25.
+ * Created by lb on 2020/5/4.
  */
-@Configuration
-@Order(100)
-public class ApiWebSecurityConfigurer extends BaseWebSecurityConfigurer {
+//@Configuration
+//@Order(200)
+public class ManagerWebSecurityConfigurer extends BaseWebSecurityConfigurer {
 
-    private static final String API_LOGIN_URL = "/api/login";
+    private static final String MANAGER_LOGIN_URL = "/manager/login";
 
     @Override
     public void configure(WebSecurity web) throws Exception {
         super.configure(web);
         // 需要忽略的资源
-        web.ignoring().antMatchers(/*"/js/**", "/css/**", "/images/**",*/
-                "/favicon.ico", "/error");
+        web.ignoring().antMatchers(/*"/manager/js/**", "/manager/css/**", "/manager/images/**",*/
+                "/manager/favicon.ico", "/manager/error");
     }
 
     @Override
     protected void configure(HttpSecurity http) throws Exception {
-        http.antMatcher("/api/**");
+        http.antMatcher("/manager/**");
         super.configure(http);
     }
 
     @Override
     protected String loginProcessingUrl() {
-        return API_LOGIN_URL;
+        return MANAGER_LOGIN_URL;
     }
 
     @Override
     protected JwtSecurityContextRepository jwtSecurityContextRepository() {
-        return new JwtSecurityContextRepository(API_LOGIN_URL);
+        return new JwtSecurityContextRepository(MANAGER_LOGIN_URL);
     }
 
     @Override
     protected DaoUrlAuthorizationConfigurer daoUrlAuthorizationConfigurer() {
-        return new DaoUrlAuthorizationConfigurer(false);
+        return new DaoUrlAuthorizationConfigurer(true);
     }
 }

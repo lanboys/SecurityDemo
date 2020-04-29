@@ -1,4 +1,4 @@
-package com.bing.lan.security;
+package com.bing.lan.security.controller;
 
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
