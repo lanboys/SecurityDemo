@@ -1,4 +1,6 @@
-package com.bing.lan.security;
+package com.bing.lan.security.web;
+
+import com.bing.lan.security.JwtSecurityContextRepository;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
