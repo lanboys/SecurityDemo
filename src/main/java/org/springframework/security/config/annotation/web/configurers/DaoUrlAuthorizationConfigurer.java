@@ -36,6 +36,12 @@ import static org.springframework.security.access.vote.AuthenticatedVoter.IS_AUT
 public class DaoUrlAuthorizationConfigurer<H extends HttpSecurityBuilder<H>> extends
         AbstractInterceptUrlConfigurer<DaoUrlAuthorizationConfigurer<H>, H> {
 
+    private boolean isManager = false;
+
+    public DaoUrlAuthorizationConfigurer(boolean isManager) {
+        this.isManager = isManager;
+    }
+
     @Override
     public void configure(H http) throws Exception {
         super.configure(http);
@@ -46,7 +52,7 @@ public class DaoUrlAuthorizationConfigurer<H extends HttpSecurityBuilder<H>> ext
 
     @Override
     FilterInvocationSecurityMetadataSource createMetadataSource(H http) {
-        return new DaoFilterInvocationSecurityMetadataSource();
+        return new DaoFilterInvocationSecurityMetadataSource(isManager);
     }
 
     @Override
@@ -71,12 +77,14 @@ public class DaoUrlAuthorizationConfigurer<H extends HttpSecurityBuilder<H>> ext
         // 是否检查匿名资源，自动添加其他所有权限
         boolean autoFillAnonymousRole = true;
         private UrlPathHelper urlPathHelper = new UrlPathHelper();
+        private boolean isManager = false;
 
-        DaoFilterInvocationSecurityMetadataSource() {
-            this(true);
+        DaoFilterInvocationSecurityMetadataSource(boolean isManager) {
+            this(isManager, true);
         }
 
-        DaoFilterInvocationSecurityMetadataSource(boolean autoFillAnonymousRole) {
+        DaoFilterInvocationSecurityMetadataSource(boolean isManager, boolean autoFillAnonymousRole) {
+            this.isManager = isManager;
             this.autoFillAnonymousRole = autoFillAnonymousRole;
             // 管理员可以访问
             requestMap.put("/admin/hello", SecurityConfig.createList(admin));
@@ -118,6 +126,9 @@ public class DaoUrlAuthorizationConfigurer<H extends HttpSecurityBuilder<H>> ext
          * 模拟数据库查询所有角色
          */
         public Collection<ConfigAttribute> daoQueryAllRole() {
+            if (isManager) {
+                return SecurityConfig.createList(user, admin);
+            }
             return SecurityConfig.createList(user, admin, anonymous);
         }
 
@@ -125,6 +136,18 @@ public class DaoUrlAuthorizationConfigurer<H extends HttpSecurityBuilder<H>> ext
          * 模拟数据库查询资源对应的角色
          */
         public Collection<ConfigAttribute> daoQuery(String requestPath) {
+            // 查询系统用户体系表
+            if (isManager) {
+                requestPath = requestPath.replace("/manager", "");
+                for (Map.Entry<String, Collection<ConfigAttribute>> entry : requestMap.entrySet()) {
+                    if (entry.getKey().equals(requestPath)) {
+                        return entry.getValue();
+                    }
+                }
+                return null;
+            }
+            // 查询用户体系表
+            requestPath = requestPath.replace("/api", "");
             for (Map.Entry<String, Collection<ConfigAttribute>> entry : requestMap.entrySet()) {
                 if (entry.getKey().equals(requestPath)) {
                     return entry.getValue();

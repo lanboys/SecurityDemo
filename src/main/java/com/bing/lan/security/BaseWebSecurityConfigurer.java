@@ -5,9 +5,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.builders.WebSecurity;
@@ -34,22 +31,16 @@ import javax.servlet.http.HttpSession;
 import javax.sql.DataSource;
 
 /**
- * Created by lb on 2020/4/25.
+ * Created by lb on 2020/5/4.
  */
-@Configuration
-public class WebSecurityConfigurer extends WebSecurityConfigurerAdapter {
+public abstract class BaseWebSecurityConfigurer extends WebSecurityConfigurerAdapter {
 
     @Autowired
     DataSource dataSource;
 
-    public WebSecurityConfigurer() {
+    public BaseWebSecurityConfigurer() {
         // 取消默认配置
         super(true);
-    }
-
-    @Bean
-    PasswordEncoder passwordEncoder() {
-        return NoOpPasswordEncoder.getInstance();
     }
 
     @Override
@@ -60,31 +51,30 @@ public class WebSecurityConfigurer extends WebSecurityConfigurerAdapter {
     @Override
     public void configure(WebSecurity web) throws Exception {
         super.configure(web);
-        // 需要忽略的资源
-        web.ignoring().antMatchers(/*"/js/**", "/css/**", "/images/**",*/
-                "/favicon.ico", "/error");
     }
 
     @Bean
-    JwtSecurityContextRepository jwtSecurityContextRepository() {
-        return new JwtSecurityContextRepository();
+    PasswordEncoder passwordEncoder() {
+        return NoOpPasswordEncoder.getInstance();
     }
 
-    @Bean
-    DaoUrlAuthorizationConfigurer daoUrlAuthorizationConfigurer() {
-        return new DaoUrlAuthorizationConfigurer();
+    protected abstract JwtSecurityContextRepository jwtSecurityContextRepository();
+
+    protected abstract DaoUrlAuthorizationConfigurer daoUrlAuthorizationConfigurer();
+
+    protected String loginProcessingUrl() {
+        return "/login";
     }
 
     /**
      * 配置角色继承
      */
-    @Bean
-    RoleHierarchy roleHierarchy() {
-        RoleHierarchyImpl hierarchy = new RoleHierarchyImpl();
-        hierarchy.setHierarchy("ROLE_ADMIN > ROLE_USER");
-        return hierarchy;
-    }
-
+    //@Bean
+    //RoleHierarchy roleHierarchy() {
+    //    RoleHierarchyImpl hierarchy = new RoleHierarchyImpl();
+    //    hierarchy.setHierarchy("ROLE_ADMIN > ROLE_USER");
+    //    return hierarchy;
+    //}
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
         // 定义 parentAuthenticationManager
@@ -151,6 +141,8 @@ public class WebSecurityConfigurer extends WebSecurityConfigurerAdapter {
         http.formLogin(formLoginConfigurer -> {
             // 配置登录后跳转地址
             //formLoginConfigurer.defaultSuccessUrl("/hello");
+
+            formLoginConfigurer.loginProcessingUrl(loginProcessingUrl());
 
             // 登录成功后不做操作，留给 JwtSecurityContextRepository.saveContext()操作
             formLoginConfigurer.successHandler((req, resp, authentication) -> {

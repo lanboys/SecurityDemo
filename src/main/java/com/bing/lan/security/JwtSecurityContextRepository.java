@@ -37,9 +37,16 @@ public class JwtSecurityContextRepository implements SecurityContextRepository {
     private static final String AUTHORIZATION = "authorization";
     private static final String AUTHORITIES = "authorities";
     private static final String SIGNING_KEY = "sign123";
-    private static final String LOGIN_URL = "/login";
+    private String LOGIN_URL = "/login";
 
     private AuthenticationTrustResolver trustResolver = new AuthenticationTrustResolverImpl();
+
+    public JwtSecurityContextRepository() {
+    }
+
+    public JwtSecurityContextRepository(String loginUrl) {
+        this.LOGIN_URL = loginUrl;
+    }
 
     @Override
     public SecurityContext loadContext(HttpRequestResponseHolder requestResponseHolder) {
